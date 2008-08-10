@@ -1,0 +1,96 @@
+#!/bin/bash 
+
+# These you can edit to taste
+EMERGE_OPTS="-uDbgq"
+PRETEND_OPTS="-uvDbgp"
+
+# Please do not edit these
+EPKG_VERSION="0.3"
+EPKG_MAINTAINER="Mike Partin <djmike@ocgnet.org>"
+EPKG_URL="http://www.ocgnet.org/~djmike/projects/epkg/"
+
+. CONF_DIR/epkg/main.cfg
+
+searchIt() {
+	if [ -z "$1" ]; then
+		exit
+	else
+		shift
+		if [ "$(which eix)" = "" ]; then
+			emerge -s $*
+		else
+			for a in $*; do
+				eix -c $a
+			done
+		fi
+		exit
+	fi
+}
+
+wrapEmerge() {
+	if [ -z "$1" ]; then
+		exit
+	else
+		for i in `ls $PRE_EMERGE/`; do
+			$PRE_EMERGE/$i
+		done
+		if [ "$(echo $*|awk '{print $1}')" = "--unmerge" ]; then
+			$(which emerge) $*
+			exit
+		fi
+		export EMERGE_DEFAULT_OPTS="$PRETEND_OPTS" && $*
+		printf ">>> Continue? [Yes/No/Edit] : "
+		read ans
+		case "$ans" in
+			Yes) echo "" > /dev/null ;;
+			Y) echo "" > /dev/null ;;
+			y) echo "" > /dev/null ;;
+			No) exit ;;
+			N) exit ;;
+			n) exit ;;
+			Edit) echo "Not implimented yet.";exit ;;
+			e) echo "Not implimented yet.";exit ;;
+			E) echo "Not implimented yet.";exit ;;
+			*) echo "" >/dev/null ;;
+		esac
+		export EMERGE_DEFAULT_OPTS="$EMERGE_OPTS" && $*
+		if [ $? = 0 ]; then
+			for b in `ls $POST_EMERGE/`; do
+				$POST_EMERGE/$b
+			done
+		fi
+	fi
+}
+
+case "$1" in
+	--epkg-version)
+		echo "Epkg v$EPKG_VERSION by $EPKG_MAINTAINER"
+		echo "$EPKG_URL"
+		exit
+	;;
+	--epkg-help)
+		echo "Epkg v$EPKG_VERSION by $EPKG_MAINTAINER"
+		echo "$EPKG_URL"
+		echo "Usage: epkg (<epkg opts>) || (<emerge opts>)"
+		echo "Note: You cannot mix epkg and emerge options."
+		echo ""
+		echo "Arguments:"
+		echo "	--system		:	Rebuild all system packages."
+		echo "	--world			:	Rebuild all world packages."
+		echo " 	-s|--search <pkg>	:	Search for package (uses eix by default)"
+		echo "	-y|--sync		:	Sync portage tree."
+		exit
+	;;
+	--system)
+		wrapEmerge "$(which emerge) system"
+	;;
+	--world)
+		wrapEmerge "$(which emerge) world"
+	;;
+	-s) 		searchIt $* ;;
+	--search)	searchIt $* ;;
+	-y) 		$(which emerge) --sync && exit ;;
+	--sync) 	$(which emerge) --sync && exit ;;
+esac
+
+wrapEmerge "$(which emerge) $*"
